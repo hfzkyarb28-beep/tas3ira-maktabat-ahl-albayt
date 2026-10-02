@@ -2,7 +2,7 @@ name: Build APK
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master", "master" ]
   workflow_dispatch:
 
 jobs:
@@ -19,33 +19,36 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: فك ملف المشروع وبناء الـ APK
+    - name: فك المشروع وبناء APK تلقائياً
       run: |
-        mkdir -p project
+        mkdir -p extracted_project
         ZIP_FILE=$(find . -maxdepth 1 -type f -name "*.zip" | head -n 1)
+        
         if [ -z "$ZIP_FILE" ]; then
-          echo "لم يتم العثور على ملف الـ ZIP"
-          exit 1
-        fi
-        unzip -q "$ZIP_FILE" -d project
-        
-        # البحث عن ملف gradlew أينما وجد داخل المجلد المفكوك
-        GRADLEW=$(find project -type f -name "gradlew" -print -quit)
-        if [ -z "$GRADLEW" ]; then
-          echo "لم يتم العثور على ملف gradlew داخل الملف المضغوط"
+          echo "خطأ: لم يتم العثور على ملف الـ ZIP في المستودع."
           exit 1
         fi
         
-        PROJECT_DIR=$(dirname "$GRADLEW")
-        echo "المجلد المستهدف هو: $PROJECT_DIR"
+        unzip -q "$ZIP_FILE" -d extracted_project
         
+        # البحث الذكي عن مسار مجلد التطبيق الذي يحتوي على build.gradle أو gradlew
+        PROJECT_DIR=$(find extracted_project -type f -name "gradlew" -exec dirname {} \; | head -n 1)
+        
+        if [ -z "$PROJECT_DIR" ]; then
+          echo "خطأ: لم يتم العثور على ملف gradlew داخل الملف المضغوط."
+          exit 1
+        fi
+        
+        echo "تم العثور على مسار المشروع في: $PROJECT_DIR"
         cd "$PROJECT_DIR"
+        
         chmod +x gradlew
         ./gradlew assembleDebug
 
-    - name: Upload APK Artifact
+    - name: رفع ملف APK الناتج
       uses: actions/upload-artifact@v4
       with:
         name: tas3ira-apk
-        path: project/**/build/outputs/apk/debug/app-debug.apk
+        path: |
+          extracted_project/**/build/outputs/apk/debug/app-debug.apk
         if-no-files-found: error
