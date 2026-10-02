@@ -1,0 +1,50 @@
+name: بناء تطبيق Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: تحميل المستودع
+        uses: actions/checkout@v4
+
+      - name: إعداد Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: فك ملف المشروع
+        run: |
+          mkdir -p project
+          ZIP_FILE=$(find . -maxdepth 1 -type f -name "*.zip" | head -n 1)
+          unzip -q "$ZIP_FILE" -d project
+
+      - name: العثور على مشروع Android
+        run: |
+          GRADLEW=$(find project -type f -name "gradlew" | head -n 1)
+          if [ -z "$GRADLEW" ]; then
+            echo "لم يتم العثور على ملف gradlew"
+            exit 1
+          fi
+          PROJECT_DIR=$(dirname "$GRADLEW")
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      - name: بناء APK
+        run: |
+          cd "$PROJECT_DIR"
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: رفع APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: tas3ira-apk
+          path: project/**/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
