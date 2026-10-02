@@ -1,22 +1,51 @@
-    - name: فك ملف المشروع
+name: Build APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: فك ملف المشروع وبناء الـ APK
       run: |
         mkdir -p project
-        ZIP_FILE=$(find . -maxdepth 1 -type f -name "*.zip")
+        ZIP_FILE=$(find . -maxdepth 1 -type f -name "*.zip" | head -n 1)
+        if [ -z "$ZIP_FILE" ]; then
+          echo "لم يتم العثور على ملف الـ ZIP"
+          exit 1
+        fi
         unzip -q "$ZIP_FILE" -d project
-
-    - name: العثور على مشروع Android وبناء APK
-      run: |
-        # البحث الشامل عن ملف gradlew في أي مجلد فرعي
-        GRADLEW=$(find project -type f -name "gradlew" -print -quit)
         
+        # البحث عن ملف gradlew أينما وجد داخل المجلد المفكوك
+        GRADLEW=$(find project -type f -name "gradlew" -print -quit)
         if [ -z "$GRADLEW" ]; then
-          echo "لم يتم العثور على ملف gradlew"
+          echo "لم يتم العثور على ملف gradlew داخل الملف المضغوط"
           exit 1
         fi
         
         PROJECT_DIR=$(dirname "$GRADLEW")
-        echo "تم العثور على المشروع في: $PROJECT_DIR"
+        echo "المجلد المستهدف هو: $PROJECT_DIR"
         
         cd "$PROJECT_DIR"
         chmod +x gradlew
         ./gradlew assembleDebug
+
+    - name: Upload APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: tas3ira-apk
+        path: project/**/build/outputs/apk/debug/app-debug.apk
+        if-no-files-found: error
