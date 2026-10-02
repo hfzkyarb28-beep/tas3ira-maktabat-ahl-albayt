@@ -1,50 +1,40 @@
-name: بناء تطبيق Android
+name: Build Android APK
 
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: تحميل المستودع
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: إعداد Java
+      - name: Unzip Project Archive
+        run: |
+          unzip "تسعيرة-مكتبة-أهل-البيت-ع.zip" -d extracted_project
+
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
+          distribution: 'temurin'
           java-version: '17'
 
-      - name: فك ملف المشروع
+      - name: Grant execute permission for gradlew
         run: |
-          mkdir -p project
-          ZIP_FILE=$(find . -maxdepth 1 -type f -name "*.zip" | head -n 1)
-          unzip -q "$ZIP_FILE" -d project
-
-      - name: العثور على مشروع Android
-        run: |
-          GRADLEW=$(find project -type f -name "gradlew" | head -n 1)
-          if [ -z "$GRADLEW" ]; then
-            echo "لم يتم العثور على ملف gradlew"
-            exit 1
-          fi
-          PROJECT_DIR=$(dirname "$GRADLEW")
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-
-      - name: بناء APK
-        run: |
-          cd "$PROJECT_DIR"
+          cd extracted_project
           chmod +x gradlew
+
+      - name: Build APK with Gradle
+        run: |
+          cd extracted_project
           ./gradlew assembleDebug
 
-      - name: رفع APK
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tas3ira-apk
-          path: project/**/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
+          name: app-debug
+          path: extracted_project/app/build/outputs/apk/debug/app-debug.apk
